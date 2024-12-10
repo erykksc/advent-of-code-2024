@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func SolvePuzzle1(tMap [][]int) int {
+func FindTrailheads(tMap [][]int) [][2]int {
 	trailheads := [][2]int{}
 	// Find all trailheads
 	for y := range len(tMap) {
@@ -18,8 +18,12 @@ func SolvePuzzle1(tMap [][]int) int {
 		}
 	}
 
-	totalScore := 0
+	return trailheads
+}
 
+func SolvePuzzle1(tMap [][]int) int {
+	trailheads := FindTrailheads(tMap)
+	totalScore := 0
 	for _, trailhead := range trailheads {
 		queue := [][2]int{trailhead}
 		visited := make(map[[2]int]bool)
@@ -64,18 +68,8 @@ func SolvePuzzle1(tMap [][]int) int {
 }
 
 func SolvePuzzle2(tMap [][]int) int {
-	trailheads := [][2]int{}
-	// Find all trailheads
-	for y := range len(tMap) {
-		for x, height := range tMap[y] {
-			if height == 0 {
-				trailheads = append(trailheads, [2]int{y, x})
-			}
-		}
-	}
-
+	trailheads := FindTrailheads(tMap)
 	totalRating := 0
-
 	for _, trailhead := range trailheads {
 		queue := [][2]int{trailhead}
 		rating := 0

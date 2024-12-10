@@ -1,0 +1,139 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+)
+
+// y,x coordinates
+type Direction [2]int
+
+var (
+	Up    = Direction{-1, 0}
+	Down  = Direction{1, 0}
+	Left  = Direction{0, -1}
+	Right = Direction{0, 1}
+)
+
+var guardRunes = map[rune]Direction{
+	'^': Up,
+	'>': Right,
+	'<': Left,
+	'v': Down,
+}
+
+var gDirSymbol = map[Direction]byte{
+	Up:    '^',
+	Right: '>',
+	Left:  '<',
+	Down:  'v',
+}
+
+var rotatedDir = map[Direction]Direction{
+	Up:    Right,
+	Right: Down,
+	Left:  Up,
+	Down:  Left,
+}
+
+func printGrid(grid [][]byte, ySize, xSize int) {
+	clearScreen()
+	var b strings.Builder
+	for y := range ySize {
+		for x := range xSize {
+			b.WriteByte(grid[y][x])
+		}
+		b.WriteByte('\n')
+	}
+
+	fmt.Println(b.String())
+}
+
+func clearScreen() {
+	cmd := exec.Command("clear") // Linux and macOS
+	cmd.Stdout = os.Stdout
+	_ = cmd.Run()
+}
+
+func main() {
+	filename := os.Args[1]
+
+	inputB, err := os.ReadFile(filename)
+	if err != nil {
+		panic(err)
+	}
+
+	input := string(inputB)
+
+	lines := strings.Split(input, "\n")
+	ySize := len(lines) - 1
+	xSize := len(lines[0])
+
+	grid := make([][]byte, ySize)
+	for y := range ySize {
+		grid[y] = make([]byte, xSize)
+		for x := range xSize {
+			grid[y][x] = lines[y][x]
+		}
+	}
+
+	// Find guard dir and position
+	gDir := [2]int{}
+	gPos := [2]int{}
+	for y, line := range lines {
+		for x, letter := range line {
+			if direction, exists := guardRunes[letter]; exists {
+				gPos = [2]int{y, x}
+				gDir = direction
+			}
+		}
+	}
+
+	// Simulate guard walk
+	for true {
+		printGrid(grid, ySize, xSize)
+
+		// Find out new position
+		newPos := [2]int{}
+
+		newPos[0] = gPos[0] + gDir[0] // new x position
+		// Check if out of bounds, reached exit
+		if newPos[0] < 0 || newPos[0] >= ySize {
+			break
+		}
+
+		newPos[1] = gPos[1] + gDir[1] // new x position
+		// Check if out of bounds, reached exit
+		if newPos[1] < 0 || newPos[1] >= xSize {
+			break
+		}
+
+		// Check if the newPos is on a rock, if so, change direction
+		if grid[newPos[0]][newPos[1]] == '#' {
+			gDir = rotatedDir[gDir]
+			continue
+		}
+
+		grid[gPos[0]][gPos[1]] = 'X'
+		gPos = newPos
+
+		grid[newPos[0]][newPos[1]] = gDirSymbol[gDir]
+	}
+	// Mark last gPos before leaving the map
+	grid[gPos[0]][gPos[1]] = 'X'
+	printGrid(grid, ySize, xSize)
+
+	// Calculate the number of X in the grid
+	count := 0
+	for y := range ySize {
+		for x := range xSize {
+			if grid[y][x] == 'X' {
+				count++
+			}
+		}
+	}
+
+	fmt.Printf("Number of X in the grid: %d\n", count)
+}

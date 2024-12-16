@@ -109,6 +109,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 	var configS strings.Builder

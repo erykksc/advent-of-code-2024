@@ -1,0 +1,5 @@
+with a determinant, check if the vectors are linearly independent
+
+
+a*X_1 + b* X_2 = X_3
+a*Y_2 + b*Y_2 = Y_3

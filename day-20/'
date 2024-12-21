@@ -1,0 +1,228 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+)
+
+type Direction struct {
+	y, x int
+}
+
+var (
+	Up    = Direction{-1, 0}
+	Down  = Direction{1, 0}
+	Left  = Direction{0, -1}
+	Right = Direction{0, 1}
+)
+
+var AllDirections = []Direction{Up, Down, Left, Right}
+
+type Position struct {
+	y, x int
+}
+
+func (pos Position) Move(dir Direction) Position {
+	return Position{pos.y + dir.y, pos.x + dir.x}
+}
+
+func (pos Position) Up() Position {
+	return Position{pos.y - 1, pos.x}
+}
+
+func (pos Position) Down() Position {
+	return Position{pos.y + 1, pos.x}
+}
+
+func (pos Position) Left() Position {
+	return Position{pos.y, pos.x - 1}
+}
+
+func (pos Position) Right() Position {
+	return Position{pos.y, pos.x + 1}
+}
+
+func (pos Position) WithinRadius(radius int) []Position {
+	if radius < 1 {
+		panic("Radius < 1: " + strconv.Itoa(radius))
+	}
+
+	// scan entire square excluding those outside of radius
+	candidate := Position{pos.y - radius+1, pos.x - radius+1}
+	for candidate != Position{pos.y+radius, pos.x + radius}{
+
+	}
+
+	// shape of the mask
+	//   O
+	//  OXO
+	// OXXXO
+	//OXXXXXO
+	// OXXXO
+	//  OXO
+	//   O
+	return []Position{
+		{pos.y - 3, pos.x},
+		{pos.y - 2, pos.x - 1},
+		{pos.y - 2, pos.x + 1},
+		{pos.y - 1, pos.x - 2},
+		{pos.y - 1, pos.x + 2},
+		{pos.y, pos.x - 3},
+		{pos.y, pos.x + 3},
+		{pos.y + 3, pos.x},
+		{pos.y + 2, pos.x - 1},
+		{pos.y + 2, pos.x + 1},
+		{pos.y + 1, pos.x - 2},
+		{pos.y + 1, pos.x + 2},
+	}
+}
+
+type Grid2D [][]rune
+
+func (grid Grid2D) Get(pos Position) rune {
+	if !grid.IsInBounds(pos) {
+		panic("Position out of bounds")
+	}
+	return grid[pos.y][pos.x]
+}
+
+func (grid Grid2D) IsInBounds(pos Position) bool {
+	height, width := len(grid), len(grid[0])
+	return pos.x >= 0 && pos.x < width && pos.y >= 0 && pos.y < height
+}
+
+func (grid Grid2D) String() string {
+	var b strings.Builder
+	for y := range grid {
+		for x := range grid[y] {
+			c := grid[y][x]
+			b.WriteRune(c)
+		}
+		b.WriteRune('\n')
+	}
+	return b.String()
+}
+
+func main() {
+	file, err := os.Open(os.Args[1])
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	grid := make(Grid2D, 0)
+
+	var startPos, endPos Position
+	height := 0
+	for scanner.Scan() {
+		line := scanner.Text()
+		grid = append(grid, make([]rune, len(line)))
+		for x, c := range line {
+			grid[height][x] = c
+			if c == 'S' {
+				startPos.y = height
+				startPos.x = x
+			} else if c == 'E' {
+				endPos.y = height
+				endPos.x = x
+			}
+		}
+		height++
+	}
+
+	fmt.Printf(grid.String())
+	fmt.Printf("StartPos: %v EndPos:%v\n", startPos, endPos)
+
+	dists := make(map[Position]int)
+	// measure distance from end to start
+	dists[endPos] = 0
+	queue := []Position{endPos}
+	for len(queue) > 0 {
+		pos := queue[0]
+		queue = queue[1:]
+
+		for _, dir := range AllDirections {
+			adj := pos.Move(dir)
+			if !grid.IsInBounds(adj) {
+				continue
+			}
+			if _, exists := dists[adj]; exists {
+				continue
+			}
+			if grid.Get(adj) == '#' {
+				continue
+			}
+			queue = append(queue, adj)
+			dists[adj] = dists[pos] + 1
+		}
+	}
+	fmt.Printf("No cheating route takes %d picoseconds\n", dists[startPos])
+
+	// saved time -> number of routes
+	savedTimeRoutes := make(map[int]int)
+	visited := make(map[Position]bool)
+	queue = []Position{startPos}
+	for len(queue) > 0 {
+		pos := queue[0]
+		queue = queue[1:]
+		if visited[pos] {
+			continue
+		}
+		visited[pos] = true
+
+		// Try to cheat
+		for _, dir := range AllDirections {
+			adj := pos.Move(dir)
+			if !grid.IsInBounds(adj) {
+				continue
+			}
+			if grid.Get(adj) != '#' {
+				continue
+			}
+			// Adj is a wall, jump over it
+			overWall := adj.Move(dir)
+			if !grid.IsInBounds(overWall) {
+				continue
+			}
+			if grid.Get(overWall) == '#' {
+				continue
+			}
+
+			savedTime := dists[pos] - dists[overWall] - 2
+			if savedTime < 1 {
+				continue
+			}
+			savedTimeRoutes[savedTime]++
+		}
+
+		// Advance in the race track
+		for _, dir := range AllDirections {
+			adj := pos.Move(dir)
+			if visited[adj] {
+				continue
+			}
+			if !grid.IsInBounds(adj) {
+				continue
+			}
+			if grid.Get(adj) == '#' {
+				continue
+			}
+			queue = append(queue, adj)
+		}
+	}
+
+	fmt.Println("TWO PICOSECONDS CHEATS:")
+	lowerThan100 := 0
+	for savedTime, count := range savedTimeRoutes {
+		fmt.Printf("There are %4d cheats that save %4d picoseconds\n", count, savedTime)
+		if savedTime >= 100 {
+			lowerThan100 += count
+		}
+	}
+	fmt.Printf("2 picosecond cheats that save at least 100 picoseconds: %d \n", lowerThan100)
+}
